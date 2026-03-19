@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from werkzeug.security import generate_password_hash
 sys.path.insert(0, str(Path(__file__).parent))
 from flask import Flask, render_template
 from flask_login import LoginManager
@@ -57,6 +58,19 @@ def create_app():
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+                # Seed admin if not present
+        if not User.query.filter_by(username="admin").first():
+            admin = User(
+                username="admin",
+                email="admin@example.com",
+                password=generate_password_hash("admin123"),  # hashed password
+                role="admin"
+            )
+            db.session.add(admin)
+            db.session.commit()
+
+    
 
     @app.after_request
     def add_header(response):

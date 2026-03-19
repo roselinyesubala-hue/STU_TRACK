@@ -19,7 +19,7 @@ class Config:
     # Database connection (update with your credentials)
     SQLALCHEMY_DATABASE_URI = (
         os.environ.get("DATABASE_URL")
-        or "mysql+pymysql://root:Rose%401979@localhost/stu_track"
+        or "postgresql://stu_track_db_liua_user:GGHs4SOiQC2H7xk30cKdO0E7qiEvdgPV@dpg-d6u120euk2gs73943kd0-a.oregon-postgres.render.com/stu_track_db_liua"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
