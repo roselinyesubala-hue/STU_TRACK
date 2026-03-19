@@ -1,11 +1,12 @@
 from flask_login import login_required, current_user
 from flask import jsonify
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from werkzeug.security import generate_password_hash
 from config import db
-from models import User, Student, Attendance, Outpass, LeaveRequest, Report, Notice
+from models import User, Student, Attendance, Outpass, LeaveRequest, Report, Notice, AirWing
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
 
@@ -17,21 +18,35 @@ def dashboard():
         flash("You must be logged in as Admin to access the dashboard.", "danger")
         return redirect(url_for("auth_bp.login"))
 
-    students = Student.query.all()
+    students = Student.query.order_by(Student.room_number).all()
     attendance_records = Attendance.query.all()
     outpasses = Outpass.query.all()
     leave_requests = LeaveRequest.query.all()
     unresolved_reports = Report.query.filter_by(status="Pending").order_by(Report.date_submitted.desc()).all()
     resolved_reports = Report.query.filter(Report.status != "Pending").order_by(Report.date_submitted.desc()).all()
     notices = Notice.query.all()
+    airwings = AirWing.query.order_by(AirWing.name).all()
 
     edit_id = request.args.get('edit_id', type=int)
     edit_student = None
     if edit_id:
         edit_student = Student.query.get(edit_id) 
+        
+    edit_airwing_id = request.args.get('edit_airwing_id', type=int)
+    edit_airwing = None
+    if edit_airwing_id:
+        edit_airwing = AirWing.query.get(edit_airwing_id)
     
-    attendance_sessions = db.session.query(Attendance.marked_at).distinct().order_by(Attendance.marked_at.desc()).all()
-    attendance_sessions = [s.marked_at.strftime("%Y-%m-%d %I:%M %p") for s in attendance_sessions]
+    attendance_sessions_raw = db.session.query(Attendance.marked_at, Attendance.floor_number).distinct().order_by(Attendance.marked_at.desc()).all()
+    attendance_sessions = []
+    for s in attendance_sessions_raw:
+        marked_str = s.marked_at.strftime("%d-%m-%Y %I:%M %p")
+        url_time_str = s.marked_at.strftime("%Y-%m-%d %I:%M %p")
+        attendance_sessions.append({
+            "display": f"{marked_str} - Floor {s.floor_number}",
+            "datetime": url_time_str,
+            "floor": s.floor_number
+        })
 
     return render_template(
         "admin_dashboard.html",
@@ -42,9 +57,112 @@ def dashboard():
         unresolved_reports=unresolved_reports,
         resolved_reports=resolved_reports,
         notices=notices,
+        airwings=airwings,
         edit_student=edit_student, 
-        attendance_sessions=attendance_sessions
+        edit_airwing=edit_airwing,
+        attendance_sessions=attendance_sessions,
+        is_polling=request.args.get('polling') == '1'
     )
+
+# --- Add/Update AirWing ---
+@admin_bp.route("/add_airwing", methods=["POST"])
+@login_required
+def add_airwing():
+    if current_user.role.lower() != "admin":
+        flash("Access denied.", "danger")
+        return redirect(url_for("auth_bp.login"))
+
+    airwing_id = request.form.get("airwing_id", "").strip()
+    name = request.form.get("name", "").strip()
+    assigned_floor = request.form.get("assigned_floor", "").strip()
+    email = request.form.get("email", "").strip()
+    phone = request.form.get("phone", "").strip()
+
+    if not airwing_id or not name or not assigned_floor or not email or not phone:
+        flash("All fields are required.", "danger")
+        return redirect(url_for("admin.dashboard", _anchor="airwing"))
+        
+    if AirWing.query.filter_by(airwing_id=airwing_id).first():
+        flash("AirWing ID already exists.", "danger")
+        return redirect(url_for("admin.dashboard", _anchor="airwing"))
+        
+    if AirWing.query.filter_by(email=email).first():
+        flash("Email already exists.", "danger")
+        return redirect(url_for("admin.dashboard", _anchor="airwing"))
+        
+    try:
+        airwing = AirWing(
+            airwing_id=airwing_id,
+            name=name,
+            assigned_floor=assigned_floor,
+            email=email,
+            phone=phone
+        )
+        db.session.add(airwing)
+        db.session.flush() # Flush to get airwing.id
+
+        # Generate accompanying User profile
+        # We check if the email is already used by a student. If so, we pass None to the User model
+        # so AirWing personnel can use the same email as a student without violating User's unique constraint.
+        user_email_to_save = email
+        existing_user_email = User.query.filter_by(email=email).first()
+        if existing_user_email:
+             user_email_to_save = None # Bypass the unique constraint in the User model
+
+        new_user = User(
+            username=airwing_id,
+            email=user_email_to_save,
+            role="AirWing",
+            airwing_id_fk=airwing.id,
+            is_first_login=True
+        )
+        new_user.set_password(airwing_id)
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Send Welcome Email with credentials
+        try:
+            from config import mail
+            from flask_mail import Message
+            msg = Message("Welcome to Stu Track - AirWing Portal", recipients=[email])
+            msg.body = f"Hello {name},\n\nYou have been registered as AirWing personnel.\nPlease log in here: http://localhost:5000/login\n\nYour Portal User ID: {airwing_id}\nYour Temporary Password: {airwing_id}\n\nYou will be required to change your password upon your first login."
+            mail.send(msg)
+        except Exception as e:
+            print(f"Failed to send welcome email to AirWing {email}: {e}")
+
+        flash("AirWing personnel added successfully and welcome email sent!", "success")
+    except IntegrityError as e:
+        db.session.rollback()
+        print(f"Integrity Error: {e}")
+        flash(f"Database error: {str(e.orig)}", "danger")
+
+    return redirect(url_for("admin.dashboard", _anchor="airwing"))
+
+@admin_bp.route("/update_airwing", methods=["POST"])
+@login_required
+def update_airwing():
+    if current_user.role.lower() != "admin":
+        flash("Access denied.", "danger")
+        return redirect(url_for("auth_bp.login"))
+
+    airwing_db_id = request.form.get("id")
+    airwing = AirWing.query.get_or_404(airwing_db_id)
+
+    airwing.airwing_id = request.form.get("airwing_id", "").strip()
+    airwing.name = request.form.get("name", "").strip()
+    airwing.assigned_floor = request.form.get("assigned_floor", "").strip()
+    airwing.email = request.form.get("email", "").strip()
+    airwing.phone = request.form.get("phone", "").strip()
+
+    try:
+        db.session.commit()
+        flash("AirWing personnel updated successfully!", "success")
+    except IntegrityError:
+        db.session.rollback()
+        flash("Error: AirWing ID already in use or database error.", "danger")
+
+    return redirect(url_for("admin.dashboard", _anchor="airwing"))
+
 
 # --- Add Student ---
 @admin_bp.route("/add_student", methods=["GET", "POST"])
@@ -55,42 +173,70 @@ def add_student():
         return redirect(url_for("auth_bp.login"))
 
     if request.method == "POST":
-        student = Student(
-            student_id=request.form["student_id"],
-            student_name=request.form["student_name"],
-            room_number=request.form["room_number"],
-            floor_number=request.form["floor_number"],
-            student_contact=request.form["student_contact"],
-            student_email=request.form.get("student_email") or None,
-            address=request.form["address"],
-            father_name=request.form["father_name"],
-            mother_name=request.form["mother_name"],
-            parent_contact=request.form["parent_contact"],
-            parent_address = request.form.get("parent_address") or "", # or use request.form["parent_address"] if required
-
-            parent_email=request.form["parent_email"],
-            guardian_name=request.form["guardian_name"],
-            guardian_contact=request.form["guardian_contact"],
-            guardian_address=request.form["guardian_address"],
-            guardian_email=request.form["guardian_email"],
-            
-        )
-        db.session.add(student)
-        db.session.commit()
-
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+        errors = {}
         
+        student_id = request.form.get("student_id", "").strip()
+        student_email = request.form.get("student_email", "").strip()
+        
+        if not student_id:
+            errors["student_id"] = "Student ID is required."
+        elif Student.query.filter_by(student_id=student_id).first():
+            errors["student_id"] = "Student ID already exists."
+            
+        if student_email and Student.query.filter_by(student_email=student_email).first():
+            errors["student_email"] = "Email address is already in use by another student."
+            
+        if student_email and User.query.filter_by(email=student_email).first():
+            errors["student_email"] = "Email address is already in use by another user."
+            
+        if errors:
+            if is_ajax:
+                return jsonify({"success": False, "errors": errors})
+            else:
+                for error_msg in errors.values():
+                    flash(error_msg, "danger")
+                return redirect(url_for("admin.dashboard", _anchor="add-student"))
 
-        # Create user account for student
-        user = User(
-            username=student.student_id,
-            email=student.student_email or student.parent_email or student.guardian_email,
-            role="Student",
-            student_id=student.id,
-            is_first_login=True
-        )
-        user.set_password(student.student_id)  # temporary password = student_id
-        db.session.add(user)
-        db.session.commit()
+        try:
+            student = Student(
+                student_id=request.form["student_id"],
+                student_name=request.form["student_name"],
+                room_number=request.form["room_number"],
+                floor_number=request.form["floor_number"],
+                student_contact=request.form["student_contact"],
+                student_email=request.form.get("student_email") or None,
+                address=request.form["address"],
+                father_name=request.form["father_name"],
+                mother_name=request.form["mother_name"],
+                parent_contact=request.form["parent_contact"],
+                parent_address = request.form.get("parent_address") or "",
+                parent_email=request.form["parent_email"],
+                guardian_name=request.form["guardian_name"],
+                guardian_contact=request.form["guardian_contact"],
+                guardian_address=request.form["guardian_address"],
+                guardian_email=request.form["guardian_email"],
+            )
+            db.session.add(student)
+            db.session.commit()
+    
+            # Create user account for student
+            user = User(
+                username=student.student_id,
+                email=student.student_email or student.parent_email or student.guardian_email,
+                role="Student",
+                student_id=student.id,
+                is_first_login=True
+            )
+            user.set_password(student.student_id)  # temporary password = student_id
+            db.session.add(user)
+            db.session.commit()
+        except IntegrityError as e:
+            db.session.rollback()
+            if is_ajax:
+                return jsonify({"success": False, "message": "A database error occurred. Ensure all unique fields are valid."})
+            flash("Database error: could not save.", "danger")
+            return redirect(url_for("admin.dashboard", _anchor="add-student"))
 
         # --- Send welcome email ---
         recipient_email = student.student_email or student.parent_email or student.guardian_email
@@ -124,12 +270,18 @@ Best regards,
 StuTrack Admin Team
 """
                 mail.send(msg)
-                flash("Welcome email sent to student.", "success")
+                if not is_ajax:
+                    flash("Welcome email sent to student.", "success")
             except Exception as e:
-                flash(f"Student created but welcome email could not be sent: {str(e)}", "warning")
+                if not is_ajax:
+                    flash(f"Student created but welcome email could not be sent: {str(e)}", "warning")
         else:
-            flash("Student created, but no email address provided for notifications.", "info")
+            if not is_ajax:
+                flash("Student created, but no email address provided for notifications.", "info")
         # ---------------------------
+
+        if is_ajax:
+            return jsonify({"success": True, "message": "Student created successfully!"})
 
         flash("Student and login created successfully!", "success")
         return redirect(url_for("admin.dashboard", _anchor="add-student"))
@@ -148,68 +300,13 @@ def send_absent_notification(student_email, student_name, marked_at):
     except Exception as e:
         print(f"Failed to send email: {e}")
 
-@admin_bp.route("/attendance", methods=["GET", "POST"])
+@admin_bp.route("/attendance", methods=["GET"])
 @login_required
 def attendance():
     if current_user.role.lower() != "admin":
         return jsonify({"error": "Unauthorized"}), 403
 
-    if request.method == "POST":
-        # Get date and time from form
-        attendance_date = request.form.get("date")
-        attendance_time = request.form.get("time")
-        if not attendance_date or not attendance_time:
-            return jsonify({"success": False, "message": "Date and time required."}), 400
-
-        try:
-            marked_at = datetime.strptime(f"{attendance_date} {attendance_time}", "%Y-%m-%d %H:%M")
-        except ValueError:
-            return jsonify({"success": False, "message": "Invalid date/time format."}), 400
-
-        saved_records = []
-        absent_students = []  # collect (email, name) for notifications
-
-        for key, value in request.form.items():
-            if key.startswith("status_"):
-                student_db_id = key.split("_")[1]
-                student = Student.query.get(student_db_id)
-                if student:
-                    new_record = Attendance(
-                        student_id=student.id,
-                        room_number=student.room_number,
-                        floor_number=student.floor_number,
-                        marked_at=marked_at,
-                        status=value
-                    )
-                    db.session.add(new_record)
-                    saved_records.append(new_record)
-                    
-                    from utils import send_push_notification
-                    if student.user:
-                        send_push_notification(student.user, "Attendance Update", f"You have been marked {value.upper()} for {marked_at.strftime('%Y-%m-%d %H:%M')}.", url="/student/dashboard#attendance")
-                        
-                    if value == "Absent" and student.student_email:
-                        absent_students.append((student.student_email, student.student_name))
-
-        db.session.commit()
-        saved_count = len(saved_records)
-
-        # Send emails (simple loop; consider background task later)
-        for email, name in absent_students:
-            send_absent_notification(email, name, marked_at)
-
-        # Fetch distinct recent sessions for the history list
-        recent_sessions = db.session.query(Attendance.marked_at)\
-                            .distinct().order_by(Attendance.marked_at.desc()).limit(20).all()
-        sessions = [s.marked_at.strftime("%Y-%m-%d %I:%M %p") for s in recent_sessions]
-
-        return jsonify({
-            "success": True,
-            "message": f"Attendance saved for {saved_count} students.",
-            "sessions": sessions
-        })
-
-    # GET request – redirect to dashboard with anchor
+    # GET request – redirect to dashboard with anchor since viewing is handled entirely on the dashboard.
     return redirect(url_for("admin.dashboard", _anchor="attendance"))
 
 @admin_bp.route("/attendance/session/<path:datetime_str>")
@@ -225,11 +322,17 @@ def attendance_session(datetime_str):
     except ValueError:
         return jsonify({"error": "Invalid datetime format"}), 400
 
-    records = Attendance.query.filter(Attendance.marked_at.between(start_time, end_time)).all()
+    floor = request.args.get("floor")
+    query = Attendance.query.filter(Attendance.marked_at.between(start_time, end_time))
+    if floor:
+        query = query.filter(Attendance.floor_number == floor)
+        
+    records = query.all()
     data = [{
         "student_id": r.student.student_id,
         "student_name": r.student.student_name,
-        "status": r.status
+        "status": r.status,
+        "floor": r.floor_number
     } for r in records]
     return jsonify({"records": data})
 
@@ -461,7 +564,7 @@ def student_list():
         flash("Access denied.", "danger")
         return redirect(url_for("auth_bp.login"))
     
-    students = Student.query.all()
+    students = Student.query.order_by(Student.room_number).all()
     return render_template("student_list.html", students=students)
 
 @admin_bp.route("/student/update", methods=["POST"])

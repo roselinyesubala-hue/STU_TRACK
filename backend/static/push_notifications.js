@@ -4,7 +4,7 @@ console.log('Push Notifications script loaded');
 
 // The VAPID_PUBLIC_KEY is provided by the template globally
 if (typeof VAPID_PUBLIC_KEY === 'undefined') {
-    var VAPID_PUBLIC_KEY = ""; // Fallback
+    window.VAPID_PUBLIC_KEY = ""; // Fallback
     console.warn('VAPID_PUBLIC_KEY was undefined at script load.');
 }
 

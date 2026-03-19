@@ -187,19 +187,82 @@
   }
 
   /* -------------------------
-     Form enhancement (optional)
-     - Prevent double submits and show a simple disabled state
+     Form enhancement (AJAX Submission)
+     - Submit forms via AJAX to retain data on validation errors
   -------------------------*/
   function initForms() {
     const forms = qsa(".form");
     forms.forEach((form) => {
       form.addEventListener("submit", function (ev) {
+        if (ev.defaultPrevented) return; // Respect inline onsubmit cancel
+        ev.preventDefault(); // Stop normal submission
+
         const btn = form.querySelector("button[type='submit']");
+        const originalText = btn ? btn.textContent : "Submit";
+        
         if (btn) {
           btn.disabled = true;
           btn.classList.add("disabled");
-          // allow normal submit to proceed; re-enable on page navigation/failure handled server-side
+          btn.textContent = "Submitting...";
         }
+
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+          method: form.method || 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: formData
+        })
+        .then(response => {
+           return response.json().then(data => ({ status: response.status, data }));
+        })
+        .then(({ status, data }) => {
+           if (btn) {
+             btn.disabled = false;
+             btn.classList.remove("disabled");
+             btn.textContent = originalText;
+           }
+           
+           if (!data.success) {
+             if (data.errors) {
+               let firstField = null;
+               for (const [fieldName, errorMsg] of Object.entries(data.errors)) {
+                 const input = form.querySelector(`[name="${fieldName}"]`);
+                 if (input) {
+                   input.setCustomValidity(errorMsg);
+                   if (!firstField) firstField = input;
+                   // Clear the error when the user modifies the input again
+                   input.addEventListener('input', function clearValidity() {
+                     input.setCustomValidity('');
+                     input.removeEventListener('input', clearValidity);
+                   });
+                 }
+               }
+               if (firstField) {
+                 firstField.reportValidity(); // This triggers the native browser error pointing to the field
+               } else {
+                 alert("Error: Invalid input.");
+               }
+             } else {
+               alert("Error: " + (data.message || "Invalid input."));
+             }
+           } else {
+             alert(data.message || "Successfully submitted!");
+             form.reset(); // clear form only on success
+             // The dashboard will auto-update via polling shortly!
+           }
+        })
+        .catch(error => {
+           console.error('Error submitting form:', error);
+           if (btn) {
+             btn.disabled = false;
+             btn.classList.remove("disabled");
+             btn.textContent = originalText;
+           }
+           alert("A network error occurred or you have been logged out.");
+        });
       });
     });
   }
@@ -219,7 +282,66 @@
     // Try to load dynamic content (non-blocking)
     loadNotices();
     loadAttendance();
+    startPolling();
   });
+
+  /* -------------------------
+     Background Polling function
+  -------------------------*/
+  function startPolling() {
+    setInterval(() => {
+      // Fetch latest dashboard HTML
+      fetch(window.location.pathname + "?polling=1", {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("Network response was not ok");
+          return response.text();
+        })
+        .then(html => {
+          // Parse the returned HTML string into a document
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+
+          // Helper function to safely replace tbody/content
+          const updateTbody = (selector) => {
+            const currentTbody = qs(selector);
+            const newTbody = doc.querySelector(selector);
+            if (currentTbody && newTbody) {
+              currentTbody.innerHTML = newTbody.innerHTML;
+            }
+          };
+
+          // Outpass History (usually the second table in the Outpass panel)
+          const outpassTables = qsa('#outpass table tbody');
+          const newOutpassTables = Array.from(doc.querySelectorAll('#outpass table tbody'));
+          if (outpassTables.length >= 1 && newOutpassTables.length >= 1) {
+            outpassTables[outpassTables.length - 1].innerHTML = newOutpassTables[newOutpassTables.length - 1].innerHTML;
+          }
+
+          // Leave History
+          const leaveTables = qsa('#leave table tbody');
+          const newLeaveTables = Array.from(doc.querySelectorAll('#leave table tbody'));
+          if (leaveTables.length >= 1 && newLeaveTables.length >= 1) {
+            leaveTables[leaveTables.length - 1].innerHTML = newLeaveTables[newLeaveTables.length - 1].innerHTML;
+          }
+
+          // Reports History
+          const reportTables = qsa('#reports table tbody');
+          const newReportTables = Array.from(doc.querySelectorAll('#reports table tbody'));
+          if (reportTables.length >= 1 && newReportTables.length >= 1) {
+            reportTables[reportTables.length - 1].innerHTML = newReportTables[newReportTables.length - 1].innerHTML;
+          }
+
+          // Dynamic API loaders can also be re-triggered safely
+          loadNotices();
+          loadAttendance();
+        })
+        .catch(err => console.error("Polling error:", err));
+    }, 3000); // Poll every 3 seconds
+  }
 
   /* -------------------------
      Expose showPanel for inline onclick handlers (if used)
@@ -243,3 +365,101 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 });
+
+// Outpass Generation Logic
+let outpassTimerInterval = null;
+
+function generateOutpass(outpassId, btnElement) {
+  // Disable button immediately to prevent double clicks
+  btnElement.disabled = true;
+  const originalText = btnElement.innerText;
+  btnElement.innerText = "Loading...";
+
+  fetch(`/student/api/outpass/generate/${outpassId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        // populate the slip
+        document.getElementById('slip-outpass-id').innerText = data.outpass.outpass_id;
+        document.getElementById('slip-date').innerText = escapeHtml(data.outpass.date);
+        document.getElementById('slip-name').innerText = escapeHtml(data.outpass.name);
+        document.getElementById('slip-room').innerText = escapeHtml(data.outpass.room);
+        document.getElementById('slip-place').innerText = escapeHtml(data.outpass.place);
+        document.getElementById('slip-return-date').innerText = escapeHtml(data.outpass.return_date);
+        document.getElementById('slip-return-time').innerText = escapeHtml(data.outpass.return_time);
+
+        // show modal
+        document.getElementById('outpassModal').classList.remove('hidden');
+
+        // Start countdown
+        startOutpassCountdown(data.remaining_seconds, btnElement, originalText);
+      } else {
+        alert(data.message || 'Error generating outpass');
+        if (data.message === "Slip has expired.") {
+          btnElement.innerText = "Slip Expired";
+          btnElement.style.backgroundColor = "#a0aec0";
+          btnElement.disabled = true;
+        } else {
+          btnElement.innerText = originalText;
+          btnElement.disabled = false;
+        }
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      alert('Failed to connect to server.');
+      btnElement.innerText = originalText;
+      btnElement.disabled = false;
+    });
+}
+
+function closeOutpassModal() {
+  document.getElementById('outpassModal').classList.add('hidden');
+}
+
+function startOutpassCountdown(seconds, btnElement, defaultText) {
+  if (outpassTimerInterval) clearInterval(outpassTimerInterval);
+
+  let remaining = seconds;
+  const timerDisplay = document.getElementById('countdown-timer');
+  btnElement.disabled = false; // Enable to view again
+
+  const updateTimer = () => {
+    if (remaining <= 0) {
+      clearInterval(outpassTimerInterval);
+      timerDisplay.innerText = "Slip Expired!";
+      btnElement.innerText = "Slip Expired";
+      btnElement.disabled = true;
+      btnElement.style.backgroundColor = "#a0aec0";
+      // close modal if open
+      setTimeout(closeOutpassModal, 2000);
+      return;
+    }
+
+    const min = Math.floor(remaining / 60);
+    const sec = remaining % 60;
+    const timeStr = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    timerDisplay.innerText = `Valid for: ${timeStr} before expiration.`;
+
+    // update button text as well
+    btnElement.innerText = `View Slip (${timeStr})`;
+
+    remaining--;
+  };
+
+  updateTimer();
+  outpassTimerInterval = setInterval(updateTimer, 1000);
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

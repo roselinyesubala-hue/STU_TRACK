@@ -70,6 +70,7 @@ class Outpass(db.Model):
     approved_return_time = db.Column(db.DateTime)
     times_modified = db.Column(db.Boolean, default=False, nullable=False)
     status = db.Column(db.Enum("Pending", "Approved", "Rejected", name="outpass_status"), default="Pending", nullable=False)
+    slip_generated_at = db.Column(db.DateTime, nullable=True)
 
 # --- Leave Requests ---
 class LeaveRequest(db.Model):
@@ -107,10 +108,15 @@ class Notice(db.Model):
     posted_on = db.Column(db.Date, nullable=False)
     expiry_date = db.Column(db.Date)
 
-
-
-
-
+# --- AirWing ---
+class AirWing(db.Model):
+    __tablename__ = "airwing"
+    id = db.Column(db.Integer, primary_key=True)
+    airwing_id = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    assigned_floor = db.Column(db.String(20), nullable=False)
+    email = db.Column(db.String(160), unique=True, nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
 
 class User(UserMixin, db.Model):
     __tablename__ = "users"
@@ -119,8 +125,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)   # register number
     email = db.Column(db.String(160), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.Enum("Student", "Admin"), nullable=False)
+    role = db.Column(db.Enum("Student", "Admin", "AirWing"), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=True)
+    airwing_id_fk = db.Column(db.Integer, db.ForeignKey("airwing.id"), nullable=True)
 
     # Fields required for first-login and password reset flows
     is_first_login = db.Column(db.Boolean, default=True, nullable=False)

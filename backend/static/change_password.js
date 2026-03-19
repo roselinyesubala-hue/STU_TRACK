@@ -15,7 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const isPassword = input.getAttribute("type") === "password";
       input.setAttribute("type", isPassword ? "text" : "password");
 
-      const icon = this.querySelector("i");
+      const icon = this.querySelector("span");
       if (icon) {
         if (isPassword) {
           icon.classList.remove("fa-eye-slash");

@@ -14,18 +14,21 @@ from routes.auth_routes import auth_bp
 from routes.admin import admin_bp
 from routes.student import student_bp
 from routes.user_routes import user_bp
+from routes.airwing import airwing_bp
 
 mail=Mail()
 def create_app():
     # Initialize Flask app
     app = Flask(__name__, static_folder="static", template_folder="templates")
     app.config.from_object(Config)
+    app.secret_key = Config.SECRET_KEY
    
     db.init_app(app)
 
     login_manager = LoginManager()
   
     login_manager.login_view = "auth_bp.login"
+    login_manager.session_protection = "basic"  # Relaxed to prevent logouts on server restart
     login_manager.init_app(app)
     mail.init_app(app)
 
@@ -41,12 +44,19 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(student_bp)
+    app.register_blueprint(airwing_bp)
    # app.register_blueprint(user_bp)
     
 
     # Create tables if they don’t exist
     with app.app_context():
         db.create_all()
+        try:
+            from sqlalchemy import text
+            db.session.execute(text("ALTER TABLE outpass ADD COLUMN slip_generated_at DATETIME;"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     @app.after_request
     def add_header(response):

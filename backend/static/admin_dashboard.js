@@ -73,9 +73,10 @@
     const initial = (location.hash && location.hash.slice(1)) || "add-student";
     showPanel(initial);
 
-    // Global listeners for specialized components
     initStudentSearch();
     initAttendanceQuickToggle();
+    initAddStudentForm();
+    startPolling();
   });
 
   function initStudentSearch() {
@@ -102,6 +103,163 @@
         });
       });
     });
+  }
+
+  function initAddStudentForm() {
+    const form = document.getElementById('addStudentForm');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const submitBtn = qs('button[type="submit"]', form);
+      if (submitBtn.disabled) return; // Prevent double submission
+
+      // Clear previous specific errors
+      qsa('.invalid-feedback', form).forEach(el => {
+        el.style.display = 'none';
+        el.textContent = '';
+      });
+
+      if (!form.checkValidity()) {
+        let firstInvalid = null;
+        // Find which fields are invalid
+        qsa('input, textarea, select', form).forEach(input => {
+          if (!input.validity.valid) {
+            if (!firstInvalid) firstInvalid = input;
+            const feedback = input.parentElement.querySelector('.invalid-feedback');
+            if (feedback) {
+              feedback.textContent = "This field is required.";
+              feedback.style.display = 'block';
+            }
+          }
+        });
+        if (firstInvalid) firstInvalid.focus();
+        return;
+      }
+
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Saving...';
+      submitBtn.disabled = true;
+
+      const formData = new FormData(form);
+
+      fetch(form.action, {
+        method: 'POST',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+      })
+        .then(response => {
+          if (!response.ok && response.status !== 400) {
+            throw new Error('Network response was not ok');
+          }
+          return response.json();
+        })
+        .then(data => {
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+
+          if (!data.success) {
+            if (data.errors) {
+              let firstErrorField = null;
+              // Show field-specific errors
+              for (const [field, errorMsg] of Object.entries(data.errors)) {
+                const input = form.querySelector(`[name="${field}"]`);
+                if (input) {
+                  if (!firstErrorField) firstErrorField = input;
+                  const feedback = input.parentElement.querySelector('.invalid-feedback');
+                  if (feedback) {
+                    feedback.textContent = errorMsg;
+                    feedback.style.display = 'block';
+                  }
+                }
+              }
+              if (firstErrorField) firstErrorField.focus();
+            } else if (data.message) {
+              // Fallback generic error
+              alert(data.message);
+            }
+          } else {
+            // Success
+            alert(data.message || 'Student added successfully!');
+            form.reset();
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          submitBtn.textContent = originalText;
+          submitBtn.disabled = false;
+          alert('An error occurred while saving. Please try again.');
+        });
+    });
+  }
+
+  /* -------------------------
+     Background Polling function
+  -------------------------*/
+  function startPolling() {
+    setInterval(() => {
+      // Fetch latest dashboard HTML
+      fetch(window.location.pathname + "?polling=1", {
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("Network response was not ok");
+          return response.text();
+        })
+        .then(html => {
+          // Parse the returned HTML string into a document
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+
+          // Helper function to safely replace tbody content
+          const updateTbody = (selector) => {
+            const currentTbody = qs(selector);
+            const newTbody = doc.querySelector(selector);
+            if (currentTbody && newTbody) {
+              currentTbody.innerHTML = newTbody.innerHTML;
+            }
+          };
+
+          // Update the different Data Tables
+
+          // Student List
+          updateTbody('#studentTable tbody');
+
+          // Airwing Personnel List
+          updateTbody('#airwing table tbody');
+
+          // Outpass Pending and History
+          const outpassTables = qsa('#outpass table tbody');
+          const newOutpassTables = Array.from(doc.querySelectorAll('#outpass table tbody'));
+          if (outpassTables.length >= 2 && newOutpassTables.length >= 2) {
+            outpassTables[0].innerHTML = newOutpassTables[0].innerHTML;
+            outpassTables[1].innerHTML = newOutpassTables[1].innerHTML;
+          }
+
+          // Leave Pending and History
+          const leaveTables = qsa('#leave table tbody');
+          const newLeaveTables = Array.from(doc.querySelectorAll('#leave table tbody'));
+          if (leaveTables.length >= 2 && newLeaveTables.length >= 2) {
+            leaveTables[0].innerHTML = newLeaveTables[0].innerHTML;
+            leaveTables[1].innerHTML = newLeaveTables[1].innerHTML;
+          }
+
+          // Reports Panel
+          const reportTables = qsa('#reports table tbody');
+          const newReportTables = Array.from(doc.querySelectorAll('#reports table tbody'));
+          if (reportTables.length >= 2 && newReportTables.length >= 2) {
+            reportTables[0].innerHTML = newReportTables[0].innerHTML;
+            reportTables[1].innerHTML = newReportTables[1].innerHTML;
+          }
+
+        })
+        .catch(err => console.error("Polling error:", err));
+    }, 3000); // Poll every 3 seconds
   }
 
   /* -------------------------

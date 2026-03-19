@@ -45,7 +45,8 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and user.check_password(password):  # Use the model method
-            login_user(user)  # Use Flask-Login, not session
+            login_user(user, remember=True)  # Use Flask-Login, not session
+            session.permanent = True
             
             # Send login success notification
             from utils import send_push_notification
@@ -61,6 +62,8 @@ def login():
                 return redirect(url_for("admin.dashboard"))
             elif user.role.lower() == "student":
                 return redirect(url_for("student.dashboard"))
+            elif user.role.lower() == "airwing":
+                return redirect(url_for("airwing_bp.dashboard"))
         else:
             flash("Invalid username or password.", "danger")
             return render_template("login.html")
@@ -105,6 +108,8 @@ def change_password():
         flash("Password changed successfully!", "success")
         if current_user.role.lower() == "admin":
             return redirect(url_for("admin.dashboard", first_login="true"))
+        elif current_user.role.lower() == "airwing":
+            return redirect(url_for("airwing_bp.dashboard", first_login="true"))
         else:
             return redirect(url_for("student.dashboard", first_login="true"))
 

@@ -53,6 +53,7 @@
         </div>
       </header>
 
+      {% if not is_polling %}
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       <div class="flash-messages">
@@ -62,6 +63,7 @@
       </div>
       {% endif %}
       {% endwith %}
+      {% endif %}
 
       <!-- Profile Panel -->
       <section id="profile" class="panel">
@@ -159,29 +161,31 @@
               style="width: 100%; padding: 12px; border: 1px solid #eee; border-radius: 8px; font-size: 14px;">
           </div>
 
-          <table class="table" id="studentAttendanceTable">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for record in attendance %}
-              <tr>
-                <td>{{ record.marked_at.strftime('%Y-%m-%d') }}</td>
-                <td>{{ record.marked_at.strftime('%I:%M %p') }}</td>
-                <td><span class="badge {% if record.status == 'Present' %}bg-success{% else %}bg-danger{% endif %}">{{
-                    record.status }}</span></td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="3">No attendance records found</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table" id="studentAttendanceTable">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in attendance %}
+                <tr>
+                  <td>{{ record.marked_at.strftime('%Y-%m-%d') }}</td>
+                  <td>{{ record.marked_at.strftime('%I:%M %p') }}</td>
+                  <td><span class="badge {% if record.status == 'Present' %}bg-success{% else %}bg-danger{% endif %}">{{
+                      record.status }}</span></td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="3">No attendance records found</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -192,14 +196,20 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">Request New Outpass</h3>
-          <form method="POST" action="{{ url_for('student.outpass') }}" class="form">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <form method="POST" action="{{ url_for('student.outpass') }}" class="form" onsubmit="return confirm('Are you sure you want to submit this outpass request?');">
+            <div class="form-grid">
               <label>Room Number<input type="text" name="room_number" required placeholder="e.g. 101"></label>
               <label>Floor Number<input type="text" name="floor_number" required placeholder="e.g. 1"></label>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-              <label>Leave Date & Time<input type="datetime-local" name="leave_time" required></label>
-              <label>Return Date & Time<input type="datetime-local" name="return_time" required></label>
+            <div class="form-grid">
+              <label>Leave Date & Time
+                <input type="datetime-local" name="leave_time" required>
+                <small style="color: #666; font-weight: normal; font-size: 11px; display: block; margin-top: 4px;">Use 24-hour format (e.g., 17:00 for 5 PM) if AM/PM options are hidden.</small>
+              </label>
+              <label>Return Date & Time
+                <input type="datetime-local" name="return_time" required>
+                <small style="color: #666; font-weight: normal; font-size: 11px; display: block; margin-top: 4px;">Use 24-hour format (e.g., 17:00 for 5 PM) if AM/PM options are hidden.</small>
+              </label>
             </div>
             <label>Place Going<input type="text" name="place" required placeholder="Where are you going?"></label>
             <label>Reason<textarea name="reason" required placeholder="Reason for outpass..."></textarea></label>
@@ -210,59 +220,65 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">My Outpass History</h3>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Place</th>
-                <th>Leave</th>
-                <th>Return</th>
-                <th>Status</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for op in outpasses %}
-              <tr>
-                <td style="font-weight: 600;">{{ op.place }}</td>
-                <td style="font-size: 13px;">
-                  {% if op.status == 'Approved' and op.approved_leave_time %}
-                  {{ op.approved_leave_time.strftime('%Y-%m-%d %I:%M %p') }}
-                  {% else %}
-                  {{ op.leave_time.strftime('%Y-%m-%d %I:%M %p') }}
-                  {% endif %}
-                </td>
-                <td style="font-size: 13px;">
-                  {% if op.status == 'Approved' and op.approved_return_time %}
-                  {{ op.approved_return_time.strftime('%Y-%m-%d %I:%M %p') }}
-                  {% else %}
-                  {{ op.return_time.strftime('%Y-%m-%d %I:%M %p') }}
-                  {% endif %}
-                </td>
-                <td>
-                  <span
-                    class="badge {% if op.status == 'Approved' %}bg-success{% elif op.status == 'Rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
-                    {{ op.status }}
-                  </span>
-                </td>
-                <td style="font-size: 13px; color: #666;">
-                  {% if op.status == 'Approved' and op.times_modified %}
-                  Modified timings
-                  {% elif op.status == 'Approved' %}
-                  Approved
-                  {% elif op.status == 'Rejected' %}
-                  Rejected
-                  {% else %}
-                  Pending
-                  {% endif %}
-                </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="5">No outpass requests</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Place</th>
+                  <th>Leave</th>
+                  <th>Return</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for op in outpasses %}
+                <tr>
+                  <td class="text-wrap" style="font-weight: 600;">{{ op.place }}</td>
+                  <td style="font-size: 13px;">
+                    {% if op.status == 'Approved' and op.approved_leave_time %}
+                    {{ op.approved_leave_time.strftime('%Y-%m-%d %I:%M %p') }}
+                    {% else %}
+                    {{ op.leave_time.strftime('%Y-%m-%d %I:%M %p') }}
+                    {% endif %}
+                  </td>
+                  <td style="font-size: 13px;">
+                    {% if op.status == 'Approved' and op.approved_return_time %}
+                    {{ op.approved_return_time.strftime('%Y-%m-%d %I:%M %p') }}
+                    {% else %}
+                    {{ op.return_time.strftime('%Y-%m-%d %I:%M %p') }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span
+                      class="badge {% if op.status == 'Approved' %}bg-success{% elif op.status == 'Rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
+                      {{ op.status }}
+                    </span>
+                  </td>
+                  <td style="font-size: 13px; color: #666;">
+                    {% if op.status == 'Approved' %}
+                    <div>
+                      {% if op.times_modified %}Modified timings{% else %}Approved{% endif %}
+                    </div>
+                    <button class="btn btn-sm generate-btn"
+                      style="padding: 4px 8px; font-size: 12px; margin-top: 4px; background-color: #3182ce; color: white; border: none; border-radius: 4px; cursor: pointer;"
+                      onclick="generateOutpass('{{ op.id }}', this)" id="btn-generate-{{ op.id }}">Generate
+                      Outpass</button>
+                    {% elif op.status == 'Rejected' %}
+                    Rejected
+                    {% else %}
+                    Pending
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="5">No outpass requests</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -273,12 +289,12 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">Request New Leave</h3>
-          <form method="POST" action="{{ url_for('student.leave') }}" class="form">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <form method="POST" action="{{ url_for('student.leave') }}" class="form" onsubmit="return confirm('Are you sure you want to submit this leave request?');">
+            <div class="form-grid">
               <label>Room Number<input type="text" name="room_number" required></label>
               <label>Floor Number<input type="text" name="floor_number" required></label>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-grid">
               <label>Leave Date<input type="date" name="leave_date" required></label>
               <label>Return Date<input type="date" name="return_date" required></label>
             </div>
@@ -290,59 +306,61 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">My Leave History</h3>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Reason</th>
-                <th>Leave Date</th>
-                <th>Return Date</th>
-                <th>Status</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for lr in leave_requests %}
-              <tr>
-                <td style="font-weight: 600;">{{ lr.reason }}</td>
-                <td style="font-size: 13px;">
-                  {% if lr.status == 'Approved' and lr.approved_leave_date %}
-                  {{ lr.approved_leave_date.strftime('%Y-%m-%d') }}
-                  {% else %}
-                  {{ lr.leave_date.strftime('%Y-%m-%d') }}
-                  {% endif %}
-                </td>
-                <td style="font-size: 13px;">
-                  {% if lr.status == 'Approved' and lr.approved_return_date %}
-                  {{ lr.approved_return_date.strftime('%Y-%m-%d') }}
-                  {% else %}
-                  {{ lr.return_date.strftime('%Y-%m-%d') }}
-                  {% endif %}
-                </td>
-                <td>
-                  <span
-                    class="badge {% if lr.status == 'Approved' %}bg-success{% elif lr.status == 'Rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
-                    {{ lr.status }}
-                  </span>
-                </td>
-                <td style="font-size: 13px; color: #666;">
-                  {% if lr.status == 'Approved' and lr.dates_modified %}
-                  Modified dates
-                  {% elif lr.status == 'Approved' %}
-                  Approved
-                  {% elif lr.status == 'Rejected' %}
-                  Rejected
-                  {% else %}
-                  Pending
-                  {% endif %}
-                </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="5">No leave requests</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Reason</th>
+                  <th>Leave Date</th>
+                  <th>Return Date</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for lr in leave_requests %}
+                <tr>
+                  <td class="text-wrap" style="font-weight: 600;">{{ lr.reason }}</td>
+                  <td style="font-size: 13px;">
+                    {% if lr.status == 'Approved' and lr.approved_leave_date %}
+                    {{ lr.approved_leave_date.strftime('%Y-%m-%d') }}
+                    {% else %}
+                    {{ lr.leave_date.strftime('%Y-%m-%d') }}
+                    {% endif %}
+                  </td>
+                  <td style="font-size: 13px;">
+                    {% if lr.status == 'Approved' and lr.approved_return_date %}
+                    {{ lr.approved_return_date.strftime('%Y-%m-%d') }}
+                    {% else %}
+                    {{ lr.return_date.strftime('%Y-%m-%d') }}
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span
+                      class="badge {% if lr.status == 'Approved' %}bg-success{% elif lr.status == 'Rejected' %}bg-danger{% else %}bg-secondary{% endif %}">
+                      {{ lr.status }}
+                    </span>
+                  </td>
+                  <td style="font-size: 13px; color: #666;">
+                    {% if lr.status == 'Approved' and lr.dates_modified %}
+                    Modified dates
+                    {% elif lr.status == 'Approved' %}
+                    Approved
+                    {% elif lr.status == 'Rejected' %}
+                    Rejected
+                    {% else %}
+                    Pending
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="5">No leave requests</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
@@ -378,8 +396,8 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">Submit New Report</h3>
-          <form method="POST" action="{{ url_for('student.reports') }}" class="form">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <form method="POST" action="{{ url_for('student.reports') }}" class="form" onsubmit="return confirm('Are you sure you want to submit this report?');">
+            <div class="form-grid">
               <label>Room Number<input type="text" name="room_number" required></label>
               <label>Floor Number<input type="text" name="floor_number" required></label>
             </div>
@@ -393,38 +411,90 @@
 
         <div class="content-card">
           <h3 class="sub-title" style="margin-top: 0; color: #2c3e50; font-weight: 600;">My Submitted Reports</h3>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Issue</th>
-                <th>Description</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for rp in reports %}
-              <tr>
-                <td style="font-weight: 600;">{{ rp.issue }}</td>
-                <td style="color: #4a5568;">{{ rp.description }}</td>
-                <td>
-                  <span
-                    class="badge {% if rp.status == 'Resolved' %}bg-success{% elif rp.status == 'Pending' %}bg-warning{% else %}bg-secondary{% endif %}">
-                    {{ rp.status }}
-                  </span>
-                </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="3">No reports submitted yet.</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Issue</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rp in reports %}
+                <tr>
+                  <td class="text-wrap" style="font-weight: 600;">{{ rp.issue }}</td>
+                  <td class="text-wrap" style="color: #4a5568;">{{ rp.description }}</td>
+                  <td>
+                    <span
+                      class="badge {% if rp.status == 'Resolved' %}bg-success{% elif rp.status == 'Pending' %}bg-warning{% else %}bg-secondary{% endif %}">
+                      {{ rp.status }}
+                    </span>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="3">No reports submitted yet.</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 
 
     </main>
+  </div>
+
+  <!-- Outpass Slip Modal -->
+  <div id="outpassModal" class="modal hidden">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeOutpassModal()">&times;</span>
+      <div id="countdown-timer"
+        style="text-align: center; color: #e53e3e; font-weight: bold; margin-bottom: 20px; font-size: 14px;"></div>
+
+      <div id="printableSlip" class="slip-container">
+        <h2 class="slip-title">St Joseph's University Gents Hostel</h2>
+        <div class="slip-header-row">
+          <h3 class="slip-subtitle">Outpass</h3>
+          <span class="slip-no" id="slip-outpass-id"></span>
+        </div>
+
+        <div class="slip-row">
+          <span class="slip-label">Date:</span>
+          <span class="slip-value" id="slip-date"></span>
+        </div>
+
+        <div class="slip-row">
+          <span class="slip-label">Name:</span>
+          <span class="slip-value" id="slip-name"></span>
+        </div>
+
+        <div class="slip-row multi" style="margin-bottom: 25px;">
+          <span class="slip-label">Room No:</span>
+          <span class="slip-value-small" id="slip-room" style="width: 80px;"></span>
+        </div>
+
+        <div class="slip-text">
+          Dear Sir, I would like to go to
+          <span class="slip-inline-value" id="slip-place"></span>
+        </div>
+
+        <div class="slip-dotted-line">
+          ....................................................................................................</div>
+
+        <div class="slip-text" style="margin-top: 15px;">
+          I'll be back on <span class="slip-inline-value" id="slip-return-date"></span>
+          Before <span class="slip-inline-value" id="slip-return-time"></span>
+        </div>
+
+        <div class="slip-footer">
+          <div class="slip-stamp">APPROVED</div>
+          <div class="slip-signature">Fr Aravind Royce SJ</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="{{ url_for('static', filename='push_notifications.js') }}?v={{ range(1, 99999) | random }}"></script>

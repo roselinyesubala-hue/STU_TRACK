@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>AirWing Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin_dashboard.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        .fixed-display {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="profile">
+                <h2>AirWing Portal</h2>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#" class="active"><i class="fas fa-calendar-check"></i> Mark Attendance</a></li>
+                    <li><a href="{{ url_for('auth_bp.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="content">
+            <header class="topbar">
+                <div class="topbar-left">
+                    <h1 class="title">Welcome, {{ airwing.name }} (ID: {{ airwing.airwing_id }})</h1>
+                </div>
+            </header>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Attendance Panel -->
+            <section class="panel active">
+                <div class="form-container">
+                    <h2>Mark Attendance</h2>
+                    <div class="fixed-display">
+                        <i class="fas fa-building" style="margin-right:8px; color:#3498db;"></i>
+                        Assigned Floor: {{ assigned_floor }}
+                        <span style="margin: 0 15px;">|</span>
+                        <i class="fas fa-calendar-day" style="margin-right:8px; color:#3498db;"></i>
+                        Date: {{ current_date }}
+                        <span style="margin: 0 15px;">|</span>
+                        <i class="fas fa-clock" style="margin-right:8px; color:#3498db;"></i>
+                        Time: {{ current_time }}
+                    </div>
+
+                    <div id="attendanceMessage"></div>
+
+                    <form id="attendanceForm">
+                        <h3 style="margin-top: 1.5rem;">Student List - Floor {{ assigned_floor }}</h3>
+                        <div class="table-responsive">
+                            <table class="report-table table table-bordered" id="attendanceStudentTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Room</th>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for student in students %}
+                                    <tr>
+                                        <td>{{ student.room_number }}</td>
+                                        <td>{{ student.student_id }}</td>
+                                        <td>{{ student.student_name }}</td>
+                                        <td>
+                                            <label><input type="radio" name="status_{{ student.id }}" value="Present"
+                                                    required>
+                                                Present</label>
+                                            <label style="margin-left: 10px;"><input type="radio"
+                                                    name="status_{{ student.id }}" value="Absent" required>
+                                                Absent</label>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="4" class="text-center">No students found assigned to Floor {{
+                                            assigned_floor }}.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% if students %}
+                        <button type="submit" class="btn btn-primary mt-3">Submit Attendance</button>
+                        {% endif %}
+                    </form>
+
+                    <!-- Attendance History Sub‑panel -->
+                    <hr style="margin-top: 2rem;">
+                    <h3>Recent History (Floor {{ assigned_floor }})</h3>
+                    <div id="sessionList">
+                        <ul style="list-style:none; padding:0;" id="attendanceHistoryUl">
+                            {% for session in recent_sessions %}
+                            <li
+                                style="margin-bottom: 0.5rem; padding: 0.8rem; background-color: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+                                <i class="fas fa-clock" style="margin-right: 8px; color: #3498db;"></i>
+                                {{ session }}
+                            </li>
+                            {% else %}
+                            <li>No recent attendance sessions found.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- admin_dashboard.js removed because it hides the panel explicitly -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const attendanceForm = document.getElementById('attendanceForm');
+            if (attendanceForm) {
+                attendanceForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    const formData = new FormData(this);
+                    fetch("{{ url_for('airwing_bp.mark_attendance') }}", { method: 'POST', body: formData })
+                        .then(res => res.json())
+                        .then(data => {
+                            const msgDiv = document.getElementById('attendanceMessage');
+                            if (data.success) {
+                                msgDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                                // Add new history element
+                                const ul = document.getElementById('attendanceHistoryUl');
+                                const now = new Date();
+                                const timeString = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                const newLi = document.createElement('li');
+                                newLi.style.cssText = "margin-bottom:0.5rem; padding:0.8rem; background-color:#e8f8f5; border-radius:6px; border:1px solid #c3e6cb; transition:all 0.3s;";
+                                newLi.innerHTML = `<i class="fas fa-clock" style="margin-right: 8px; color: #2ecc71;"></i> ${timeString} (Just Now)`;
+
+                                // Clear "No history" message if exists
+                                if (ul.innerHTML.includes('No recent')) ul.innerHTML = '';
+
+                                ul.insertBefore(newLi, ul.firstChild);
+                                this.reset();
+                            } else {
+                                msgDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
+                            }
+                        })
+                        .catch(() => alert('An error occurred while saving attendance.'));
+                });
+            }
+        });
+
+        // Minimal Sidebar Toggles (no tabs in airwing, just active highlight)
+        function showPanel(panelId) { } 
+    </script>
+</body>
+
+</html>

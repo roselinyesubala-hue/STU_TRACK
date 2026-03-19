@@ -37,6 +37,10 @@
 </head>
 
 <body>
+  <!-- Mobile Sidebar Toggle -->
+  <button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('collapsed')">
+    <i class="fas fa-bars"></i>
+  </button>
 
   <div class="container">
     <!-- Sidebar -->
@@ -64,6 +68,9 @@
           <li><a href="#student-list" onclick="showPanel('student-list'); return false;"><i class="fas fa-users"></i>
               Student List</a>
           </li>
+          <li><a href="#airwing" onclick="showPanel('airwing'); return false;"><i class="fas fa-plane"></i>
+              AirWing</a>
+          </li>
           <li><a href="{{ url_for('auth_bp.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
         </ul>
       </nav>
@@ -81,7 +88,8 @@
           </div>
         </div>
       </header>
-      {% set active_panel = 'edit-student' if edit_student else 'add-student' %}
+      {% set active_panel = 'edit-airwing' if edit_airwing else 'edit-student' if edit_student else 'add-student' %}
+      {% if not is_polling %}
       {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
       <div class="flash-messages">
@@ -91,34 +99,94 @@
       </div>
       {% endif %}
       {% endwith %}
+      {% endif %}
 
       <!-- Add Student Panel -->
       <section id="add-student" class="panel {{ 'active' if active_panel == 'add-student' else 'hidden' }}">
         <div class="form-container">
           <h2>Add Student</h2>
-          <form method="POST" action="{{ url_for('admin.add_student') }}" class="student-form">
+          <form method="POST" action="{{ url_for('admin.add_student') }}" class="student-form" id="addStudentForm"
+            novalidate>
             <h3>Student Details</h3>
-            <div class="form-group"><label>Student ID <span class="text-danger">*</span></label><input type="text"
-                name="student_id" required></div>
-            <div class="form-group"><label>Student Name <span class="text-danger">*</span></label><input type="text"
-                name="student_name" required></div>
-            <div class="form-group"><label>Room Number</label><input type="text" name="room_number"></div>
-            <div class="form-group"><label>Floor Number</label><input type="text" name="floor_number"></div>
-            <div class="form-group"><label>Student Contact</label><input type="text" name="student_contact"></div>
-            <div class="form-group"><label>Student Email</label><input type="email" name="student_email"></div>
-            <div class="form-group"><label>Address</label><textarea name="address"></textarea></div>
+            <div class="form-group">
+              <label>Student ID <span class="text-danger">*</span></label>
+              <input type="text" name="student_id" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Student Name <span class="text-danger">*</span></label>
+              <input type="text" name="student_name" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Room Number <span class="text-danger">*</span></label>
+              <input type="text" name="room_number" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Floor Number <span class="text-danger">*</span></label>
+              <input type="text" name="floor_number" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Student Contact <span class="text-danger">*</span></label>
+              <input type="text" name="student_contact" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Student Email <span class="text-danger">*</span></label>
+              <input type="email" name="student_email" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Address <span class="text-danger">*</span></label>
+              <textarea name="address" required></textarea>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
 
             <h3>Parent Details</h3>
-            <div class="form-group"><label>Father's Name</label><input type="text" name="father_name"></div>
-            <div class="form-group"><label>Mother's Name</label><input type="text" name="mother_name"></div>
-            <div class="form-group"><label>Parent Contact</label><input type="text" name="parent_contact"></div>
-            <div class="form-group"><label>Parent Email</label><input type="email" name="parent_email"></div>
+            <div class="form-group">
+              <label>Father's Name <span class="text-danger">*</span></label>
+              <input type="text" name="father_name" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Mother's Name <span class="text-danger">*</span></label>
+              <input type="text" name="mother_name" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Parent Contact <span class="text-danger">*</span></label>
+              <input type="text" name="parent_contact" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Parent Email <span class="text-danger">*</span></label>
+              <input type="email" name="parent_email" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
 
             <h3>Guardian Details</h3>
-            <div class="form-group"><label>Guardian Name</label><input type="text" name="guardian_name"></div>
-            <div class="form-group"><label>Guardian Contact</label><input type="text" name="guardian_contact"></div>
-            <div class="form-group"><label>Guardian Address</label><textarea name="guardian_address"></textarea></div>
-            <div class="form-group"><label>Guardian Email</label><input type="email" name="guardian_email"></div>
+            <div class="form-group">
+              <label>Guardian Name <span class="text-danger">*</span></label>
+              <input type="text" name="guardian_name" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Guardian Contact <span class="text-danger">*</span></label>
+              <input type="text" name="guardian_contact" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Guardian Address <span class="text-danger">*</span></label>
+              <textarea name="guardian_address" required></textarea>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
+            <div class="form-group">
+              <label>Guardian Email <span class="text-danger">*</span></label>
+              <input type="email" name="guardian_email" required>
+              <div class="invalid-feedback text-danger" style="display:none; font-size: 0.85em; margin-top: 5px;"></div>
+            </div>
 
             <button type="submit" class="btn">Save Student</button>
           </form>
@@ -262,7 +330,7 @@
                     value="{{ edit_student.parent_email if edit_student else '' }}">
                 </div>
               </div>
-                  <div class="col-12">
+              <div class="col-12">
                 <div class="form-group">
                   <label>Parent Address</label>
                   <textarea name="Parent_address" class="form-control"
@@ -312,59 +380,159 @@
         </div>
       </section>
 
-      <!-- Attendance Panel -->
-      <section id="attendance" class="panel hidden">
+      <!-- AirWing Panel -->
+      <section id="airwing" class="panel {{ 'active' if active_panel == 'airwing' else 'hidden' }}">
         <div class="form-container">
-          <h2>Mark Attendance</h2>
-          <div id="attendanceMessage"></div>
-
-          <form id="attendanceForm">
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" name="date" required>
+          <h2>Add AirWing Personnel</h2>
+          <form method="POST" action="{{ url_for('admin.add_airwing') }}" class="student-form">
+            <div class="row">
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>AirWing ID <span class="text-danger">*</span></label>
+                  <input type="text" name="airwing_id" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>Name <span class="text-danger">*</span></label>
+                  <input type="text" name="name" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>Assigned Floor <span class="text-danger">*</span></label>
+                  <input type="text" name="assigned_floor" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-4 mt-3">
+                <div class="form-group">
+                  <label>Email <span class="text-danger">*</span></label>
+                  <input type="email" name="email" class="form-control" required>
+                </div>
+              </div>
+              <div class="col-md-4 mt-3">
+                <div class="form-group">
+                  <label>Phone Number <span class="text-danger">*</span></label>
+                  <input type="tel" name="phone" class="form-control" pattern="[0-9]{10}" required>
+                  <small class="text-muted">10 digits</small>
+                </div>
+              </div>
             </div>
-            <div class="form-group">
-              <label>Time</label>
-              <input type="time" name="time" required>
-            </div>
+            <button type="submit" class="btn btn-primary mt-3">Save AirWing</button>
+          </form>
 
-            <h3>Student List</h3>
-            <table class="report-table">
-              <thead>
+          <h3 class="mt-5" style="margin-top: 2rem;">AirWing Personnel List</h3>
+          <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+              <thead class="table-dark">
                 <tr>
-                  <th>ID</th>
+                  <th>AirWing ID</th>
                   <th>Name</th>
-                  <th>Status</th>
+                  <th>Assigned Floor</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {% for student in students %}
+                {% for aw in airwings %}
                 <tr>
-                  <td>{{ student.student_id }}</td>
-                  <td>{{ student.student_name }}</td>
+                  <td>{{ aw.airwing_id }}</td>
+                  <td>{{ aw.name }}</td>
+                  <td>{{ aw.assigned_floor }}</td>
+                  <td>{{ aw.email }}</td>
+                  <td>{{ aw.phone }}</td>
                   <td>
-                    <label><input type="radio" name="status_{{ student.id }}" value="Present" required>
-                      Present</label>
-                    <label><input type="radio" name="status_{{ student.id }}" value="Absent" required> Absent</label>
+                    <a href="{{ url_for('admin.dashboard', edit_airwing_id=aw.id, _anchor='edit-airwing') }}"
+                      class="btn btn-sm btn-primary">Edit</a>
                   </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="6" class="text-center">No AirWing personnel found.</td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
-            <button type="submit" class="btn">Save Attendance</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Edit AirWing Panel -->
+      <section id="edit-airwing" class="panel {{ 'active' if active_panel == 'edit-airwing' else 'hidden' }}">
+        <div class="form-container">
+          <h2>Edit AirWing Personnel: {{ edit_airwing.name if edit_airwing else '' }}</h2>
+          <form method="POST" action="{{ url_for('admin.update_airwing') }}" class="student-form">
+            <input type="hidden" name="id" value="{{ edit_airwing.id if edit_airwing else '' }}">
+            <div class="row">
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>AirWing ID <span class="text-danger">*</span></label>
+                  <input type="text" name="airwing_id" class="form-control"
+                    value="{{ edit_airwing.airwing_id if edit_airwing else '' }}" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>Name <span class="text-danger">*</span></label>
+                  <input type="text" name="name" class="form-control"
+                    value="{{ edit_airwing.name if edit_airwing else '' }}" required>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>Assigned Floor <span class="text-danger">*</span></label>
+                  <input type="text" name="assigned_floor" class="form-control"
+                    value="{{ edit_airwing.assigned_floor if edit_airwing else '' }}" required>
+                </div>
+              </div>
+              <div class="col-md-4 mt-3">
+                <div class="form-group">
+                  <label>Email <span class="text-danger">*</span></label>
+                  <input type="email" name="email" class="form-control"
+                    value="{{ edit_airwing.email if edit_airwing else '' }}" required>
+                </div>
+              </div>
+              <div class="col-md-4 mt-3">
+                <div class="form-group">
+                  <label>Phone Number <span class="text-danger">*</span></label>
+                  <input type="tel" name="phone" class="form-control" pattern="[0-9]{10}"
+                    value="{{ edit_airwing.phone if edit_airwing else '' }}" required>
+                  <small class="text-muted">10 digits</small>
+                </div>
+              </div>
+            </div>
+            <div class="form-group mt-4">
+              <button type="submit" class="btn btn-primary">Update AirWing</button>
+              <a href="{{ url_for('admin.dashboard', _anchor='airwing') }}" class="btn btn-secondary">Cancel</a>
+            </div>
           </form>
+        </div>
+      </section>
+
+      <!-- Attendance Panel -->
+      <section id="attendance" class="panel hidden">
+        <div class="form-container">
+          <h2>Attendance</h2>
+          <div id="attendanceMessage"></div>
 
           <!-- Attendance History Sub‑panel -->
-          <hr>
           <h3>Attendance History</h3>
+          <p class="text-muted" style="margin-bottom: 1.5rem;">Attendance is now managed by AirWing personnel at the
+            floor level.</p>
           <div class="search-bar">
             <input type="text" id="sessionSearch" placeholder="Search by date (YYYY-MM-DD) or time...">
           </div>
           <div id="sessionList">
-            <ul style="list-style:none; padding:0;">
+            <ul style="list-style:none; padding:0;" id="attendanceHistoryUl">
               {% for session in attendance_sessions %}
-              <li>
-                <a href="#" class="session-link" data-datetime="{{ session }}">{{ session }}</a>
+              <li
+                style="margin-bottom: 0.5rem; padding: 0.8rem; background-color: #f8f9fa; border-radius: 6px; border: 1px solid #e9ecef;">
+                <a href="#" class="session-link" data-datetime="{{ session.datetime }}" data-floor="{{ session.floor }}"
+                  style="text-decoration: none; color: #2c3e50; font-weight: 500;">
+                  <i class="fas fa-clock" style="margin-right: 8px; color: #3498db;"></i>
+                  {{ session.display }}
+                </a>
               </li>
               {% else %}
               <li>No attendance sessions yet.</li>
@@ -416,8 +584,8 @@
                     <tr id="row-{{ outpass.id }}">
                       <td>{{ outpass.student.student_id }}</td>
                       <td>{{ outpass.student.student_name }}</td>
-                      <td>{{ outpass.place }}</td>
-                      <td>{{ outpass.reason }}</td>
+                      <td class="text-wrap">{{ outpass.place }}</td>
+                      <td class="text-wrap">{{ outpass.reason }}</td>
                       <td>
                         <input type="time" class="form-control leave-time" data-id="{{ outpass.id }}"
                           value="{{ outpass.leave_time.strftime('%H:%M') }}">
@@ -467,8 +635,8 @@
                     <tr>
                       <td>{{ outpass.student.student_id }}</td>
                       <td>{{ outpass.student.student_name }}</td>
-                      <td>{{ outpass.place }}</td>
-                      <td>{{ outpass.reason }}</td>
+                      <td class="text-wrap">{{ outpass.place }}</td>
+                      <td class="text-wrap">{{ outpass.reason }}</td>
                       <td>
                         {% if outpass.status == 'Approved' and outpass.approved_leave_time %}
                         {{ outpass.approved_leave_time.strftime('%Y-%m-%d %I:%M %p') }}
@@ -579,7 +747,7 @@
                     <tr>
                       <td>{{ leave.student.student_id if leave.student else 'N/A' }}</td>
                       <td>{{ leave.student.student_name if leave.student else 'N/A' }}</td>
-                      <td>{{ leave.reason }}</td>
+                      <td class="text-wrap">{{ leave.reason }}</td>
                       <td>
                         {% if leave.status == 'Approved' and leave.approved_leave_date %}
                         {{ leave.approved_leave_date.strftime('%Y-%m-%d') }}
@@ -699,8 +867,8 @@
                       <td>{{ report.student.student_id }}</td>
                       <td>{{ report.room_number }}</td>
                       <td>{{ report.floor_number }}</td>
-                      <td>{{ report.issue }}</td>
-                      <td>{{ report.description or "" }}</td>
+                      <td class="text-wrap">{{ report.issue }}</td>
+                      <td class="text-wrap">{{ report.description or "" }}</td>
                       <td>
                         <button class="btn btn-primary btn-sm resolve-report-btn" data-id="{{ report.id }}"
                           style="background-color: #3498db; border: none; padding: 5px 10px; border-radius: 4px; color: white; cursor: pointer;">Resolve</button>
@@ -747,8 +915,8 @@
                       <td>{{ report.student.student_id }}</td>
                       <td>{{ report.room_number }}</td>
                       <td>{{ report.floor_number }}</td>
-                      <td>{{ report.issue }}</td>
-                      <td>{{ report.description or "" }}</td>
+                      <td class="text-wrap">{{ report.issue }}</td>
+                      <td class="text-wrap">{{ report.description or "" }}</td>
                       <td><span class="badge bg-success"
                           style="background-color: #2ecc71; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; color: white;">{{
                           report.status }}</span></td>
@@ -789,12 +957,14 @@
             row.style.display = (id.includes(filter) || name.includes(filter)) ? '' : 'none';
           });
         });
-      }
-
-      // 2. Outpass handling
-      document.querySelectorAll('.approve-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const id = this.dataset.id;
+      }      // 2. Outpass handling + 4. Leave Request + 5. Report Resolve handling (USING EVENT DELEGATION to survive polling)
+      document.body.addEventListener('click', function(e) {
+        
+        // --- Outpass Approve ---
+        if (e.target.classList.contains('approve-btn')) {
+          e.preventDefault();
+          if (!confirm("Are you sure you want to approve this outpass request?")) return;
+          const id = e.target.dataset.id;
           const row = document.getElementById('row-' + id);
           const leave = row.querySelector('.leave-time').value;
           const returnTime = row.querySelector('.return-time').value;
@@ -806,76 +976,24 @@
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); })
             .catch(err => alert('Error: ' + err));
-        });
-      });
+        }
 
-      document.querySelectorAll('.reject-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          fetch('/admin/outpass/reject/' + this.dataset.id, { method: 'POST' })
+        // --- Outpass Reject ---
+        if (e.target.classList.contains('reject-btn')) {
+          e.preventDefault();
+          if (!confirm("Are you sure you want to reject this outpass request?")) return;
+          const id = e.target.dataset.id;
+          fetch('/admin/outpass/reject/' + id, { method: 'POST' })
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); })
             .catch(err => alert('Error: ' + err));
-        });
-      });
+        }
 
-      // 3. Attendance form and history
-      const attendanceForm = document.getElementById('attendanceForm');
-      if (attendanceForm) {
-        attendanceForm.addEventListener('submit', function (e) {
+        // --- Leave Approve ---
+        if (e.target.classList.contains('approve-leave-btn')) {
           e.preventDefault();
-          const formData = new FormData(this);
-          fetch("{{ url_for('admin.attendance') }}", { method: 'POST', body: formData })
-            .then(res => res.json())
-            .then(data => {
-              const msgDiv = document.getElementById('attendanceMessage');
-              if (data.success) {
-                msgDiv.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
-                const sessionList = document.querySelector('#sessionList ul');
-                if (sessionList && data.sessions) {
-                  sessionList.innerHTML = data.sessions.map(s => `<li><a href="#" class="session-link" data-datetime="${s}">${s}</a></li>`).join('');
-                  attachSessionLinkHandlers();
-                }
-                this.reset();
-              } else {
-                msgDiv.innerHTML = `<div class="alert alert-danger">${data.message}</div>`;
-              }
-            })
-            .catch(() => alert('An error occurred while saving attendance.'));
-        });
-      }
-
-      function attachSessionLinkHandlers() {
-        document.querySelectorAll('.session-link').forEach(link => {
-          link.addEventListener('click', function (e) {
-            e.preventDefault();
-            const dt = this.dataset.datetime;
-            document.getElementById('selectedSession').innerText = dt;
-            fetch('/admin/attendance/session/' + encodeURIComponent(dt))
-              .then(res => res.json())
-              .then(data => {
-                const tbody = document.querySelector('#sessionDetailTable tbody');
-                tbody.innerHTML = data.records.map(r => `<tr><td>${r.student_id}</td><td>${r.student_name}</td><td>${r.status}</td></tr>`).join('');
-                document.getElementById('sessionDetails').style.display = 'block';
-              });
-          });
-        });
-      }
-      attachSessionLinkHandlers();
-
-      const sessionSearch = document.getElementById('sessionSearch');
-      if (sessionSearch) {
-        sessionSearch.addEventListener('keyup', function () {
-          const filter = this.value.toLowerCase();
-          document.querySelectorAll('#sessionList ul li').forEach(li => {
-            li.style.display = li.textContent.toLowerCase().includes(filter) ? '' : 'none';
-          });
-        });
-      }
-
-      // 4. Leave Request handling
-      document.querySelectorAll('.approve-leave-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const id = this.dataset.id;
+          if (!confirm("Are you sure you want to approve this leave request?")) return;
+          const id = e.target.dataset.id;
           const row = document.getElementById('leave-row-' + id);
           const leaveDate = row.querySelector('.leave-date').value;
           const returnDate = row.querySelector('.return-date').value;
@@ -886,26 +1004,28 @@
           })
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); });
-        });
-      });
+        }
 
-      document.querySelectorAll('.reject-leave-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          fetch('/admin/leave/reject/' + this.dataset.id, { method: 'POST' })
+        // --- Leave Reject ---
+        if (e.target.classList.contains('reject-leave-btn')) {
+          e.preventDefault();
+          if (!confirm("Are you sure you want to reject this leave request?")) return;
+          const id = e.target.dataset.id;
+          fetch('/admin/leave/reject/' + id, { method: 'POST' })
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); });
-        });
-      });
+        }
 
-      // 5. Report Resolve handling
-      document.querySelectorAll('.resolve-report-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-          const id = this.dataset.id;
+        // --- Report Resolve ---
+        if (e.target.classList.contains('resolve-report-btn')) {
+          e.preventDefault();
+          if (!confirm("Are you sure you want to resolve this report?")) return;
+          const id = e.target.dataset.id;
           fetch('/admin/report/resolve/' + id, { method: 'POST' })
             .then(res => res.json())
             .then(data => { alert(data.message); location.reload(); })
             .catch(err => alert('Error: ' + err));
-        });
+        }
       });
     });
   </script>
