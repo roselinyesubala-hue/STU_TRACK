@@ -64,8 +64,8 @@ def create_app():
             admin = User(
                 username="admin",
                 email="admin@example.com",
-                password=generate_password_hash("admin123"),  # hashed password
-                role="admin"
+                password_hash=generate_password_hash("admin123"),
+                role="Admin"
             )
             db.session.add(admin)
             db.session.commit()

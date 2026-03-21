@@ -229,6 +229,5 @@ def subscribe_push():
         return jsonify({"success": True, "message": "Subscribed successfully"})
     except Exception as e:
         print(f"CRITICAL PUSH ERROR: Failed to save subscription to database: {e}")
-        return jsonify({"success": False, "message": str(e)}), 500
         db.session.rollback()
         return jsonify({"success": False, "message": str(e)}), 500

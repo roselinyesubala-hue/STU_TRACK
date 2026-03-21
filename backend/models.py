@@ -125,7 +125,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)   # register number
     email = db.Column(db.String(160), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.Enum("Student", "Admin", "AirWing"), nullable=False)
+    role = db.Column(db.Enum("Student", "Admin", "AirWing", name="user_role"), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey("students.id"), nullable=True)
     airwing_id_fk = db.Column(db.Integer, db.ForeignKey("airwing.id"), nullable=True)
 
